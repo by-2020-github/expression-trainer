@@ -13,9 +13,13 @@ class ExpressionTrainer {
     this.stats = { fillers: 0, hedges: 0, vagueWords: 0, totalWords: 0, duration: 0 };
     this.lastFeedbackText = '';
     this.lastReport = '';
+    this.modelReadyFlag = false;
+    this.modelDownloadActive = false;
+    this.activeDownloadPromise = null;
 
     this.initElements();
     this.bindEvents();
+    this.checkModelStatus();
   }
 
   initElements() {
@@ -45,6 +49,16 @@ class ExpressionTrainer {
     this.statHedges = document.getElementById('stat-hedges');
     this.statVague = document.getElementById('stat-vague');
     this.statDensity = document.getElementById('stat-density');
+    this.modelStatus = document.getElementById('model-status');
+    this.modelPromptModal = document.getElementById('model-prompt-modal');
+    this.btnDownloadNow = document.getElementById('btn-download-now');
+    this.btnDownloadLater = document.getElementById('btn-download-later');
+    this.modelProgressModal = document.getElementById('model-progress-modal');
+    this.btnDownloadHide = document.getElementById('btn-download-hide');
+    this.downloadProgressFill = document.getElementById('download-progress-fill');
+    this.downloadPercent = document.getElementById('download-percent');
+    this.downloadFile = document.getElementById('download-file');
+    this.downloadError = document.getElementById('download-error');
   }
 
   bindEvents() {
@@ -69,11 +83,15 @@ class ExpressionTrainer {
     this.btnCopyText.addEventListener('click', () => this.copyOriginalText());
     this.btnSaveText.addEventListener('click', () => this.saveOriginalText());
     this.btnClear.addEventListener('click', () => this.clearAll());
+    this.btnDownloadHide?.addEventListener('click', () => this.hideProgressModal());
   }
 
   // ===== 录制控制 =====
 
   async startRecording() {
+    const ok = await this.ensureModelReady();
+    if (!ok) return;
+
     const initResult = await window.api.initASR();
     if (!initResult.success) {
       this.showError(`语音识别启动失败: ${initResult.error}`);
@@ -390,6 +408,142 @@ class ExpressionTrainer {
     line.style.color = '#ff6b6b';
     line.textContent = msg;
     this.subtitleContainer.appendChild(line);
+  }
+
+  // ===== 模型下载（打包版首次启动 / 设置页触发） =====
+
+  async checkModelStatus() {
+    try {
+      window.api.onASRModelProgress((p) => this.handleModelProgress(p));
+      const { ready } = await window.api.checkASRModel();
+      this.modelReadyFlag = ready;
+      // 首次启动且模型未下载：提示用户下载
+      if (!ready) {
+        this.promptModelDownload();
+      }
+    } catch (e) {
+      // 非打包态或查询失败时静默
+    }
+  }
+
+  /** 弹出确认框，返回用户是否选择下载（Promise<boolean>） */
+  promptModelDownload() {
+    return new Promise((resolve) => {
+      this.modelPromptModal.classList.remove('hidden');
+      this.btnDownloadNow.onclick = () => {
+        this.modelPromptModal.classList.add('hidden');
+        resolve(true);
+      };
+      this.btnDownloadLater.onclick = () => {
+        this.modelPromptModal.classList.add('hidden');
+        resolve(false);
+      };
+    });
+  }
+
+  /** 开始下载（多个调用方共享同一个进度弹窗） */
+  startModelDownload() {
+    if (this.modelDownloadActive) return this.activeDownloadPromise;
+
+    this.showProgressModal();
+    this.setProgress(0, '准备中…', '');
+    this.modelDownloadActive = true;
+    this.activeDownloadPromise = window.api.startASRDownload();
+
+    return this.activeDownloadPromise
+      .then(() => {
+        this.modelReadyFlag = true;
+        this.setProgress(100, '下载完成', '');
+        this.setStartLabel('开始录制');
+        this.showModelStatus('语音识别模型已就绪，可以开始录音', 'done');
+        setTimeout(() => this.hideModelStatus(), 4000);
+        setTimeout(() => this.hideProgressModal(), 1000);
+        return this.modelReadyFlag;
+      })
+      .catch((err) => {
+        this.modelReadyFlag = false;
+        this.setProgressError(err?.message || '下载失败');
+        return this.modelReadyFlag;
+      })
+      .finally(() => {
+        this.modelDownloadActive = false;
+        this.activeDownloadPromise = null;
+      });
+  }
+
+  /** 确保模型就绪：就绪返回 true；未就绪则提示下载（或等待进行中的下载） */
+  async ensureModelReady() {
+    const { ready } = await window.api.checkASRModel();
+    if (ready) return true;
+
+    if (this.modelDownloadActive) {
+      this.showProgressModal();
+      await this.activeDownloadPromise;
+      return this.modelReadyFlag;
+    }
+
+    const ok = await this.promptModelDownload();
+    if (!ok) return false;
+    await this.startModelDownload();
+    return this.modelReadyFlag;
+  }
+
+  handleModelProgress(p) {
+    if (p.state === 'downloading') {
+      this.modelReadyFlag = false;
+      this.setProgress(p.percent || 0, p.note || p.file || '', '');
+    } else if (p.state === 'done') {
+      this.modelReadyFlag = true;
+      this.setProgress(100, '下载完成', '');
+      this.setStartLabel('开始录制');
+      this.showModelStatus('语音识别模型已就绪', 'done');
+      setTimeout(() => this.hideModelStatus(), 4000);
+      setTimeout(() => this.hideProgressModal(), 1000);
+    } else if (p.state === 'error') {
+      this.modelReadyFlag = false;
+      this.setProgressError(p.message || '下载失败');
+    }
+  }
+
+  showProgressModal() {
+    this.modelPromptModal.classList.add('hidden');
+    this.modelProgressModal.classList.remove('hidden');
+    if (this.downloadError) this.downloadError.textContent = '';
+    if (this.btnDownloadHide) this.btnDownloadHide.textContent = '隐藏';
+  }
+
+  hideProgressModal() {
+    if (this.modelProgressModal) this.modelProgressModal.classList.add('hidden');
+  }
+
+  setProgress(percent, file, error) {
+    if (this.downloadProgressFill) this.downloadProgressFill.style.width = `${percent}%`;
+    if (this.downloadPercent) this.downloadPercent.textContent = `${percent}%`;
+    if (this.downloadFile) this.downloadFile.textContent = file || '';
+    if (this.downloadError) this.downloadError.textContent = error || '';
+    if (percent < 100) this.setStartLabel(`下载模型中 ${percent}%`);
+  }
+
+  setProgressError(message) {
+    if (this.downloadError) this.downloadError.textContent = message;
+    if (this.downloadFile) this.downloadFile.textContent = '下载失败，请检查网络后重试';
+    this.setStartLabel('开始录制');
+  }
+
+  setStartLabel(text) {
+    const label = this.btnStart?.querySelector('.btn-label');
+    if (label) label.textContent = text;
+  }
+
+  showModelStatus(msg, type = '') {
+    if (!this.modelStatus) return;
+    this.modelStatus.textContent = msg;
+    this.modelStatus.className = 'model-status' + (type ? ' ' + type : '');
+    this.modelStatus.classList.remove('hidden');
+  }
+
+  hideModelStatus() {
+    if (this.modelStatus) this.modelStatus.classList.add('hidden');
   }
 
   // ===== 复制 & 保存原文 & 清空 =====

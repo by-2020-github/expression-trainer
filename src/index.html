@@ -45,6 +45,9 @@
         </div>
       </div>
 
+      <!-- 模型下载状态条（打包版首次启动显示） -->
+      <div id="model-status" class="model-status hidden"></div>
+
       <!-- 字幕区顶部工具栏 -->
       <div class="subtitle-topbar">
         <button id="btn-paste" class="btn-sm btn-paste-top">
@@ -138,6 +141,43 @@
         </div>
       </div>
       <div id="report-body" class="modal-body">
+      </div>
+    </div>
+  </div>
+
+  <!-- 模型下载确认弹窗 -->
+  <div id="model-prompt-modal" class="modal hidden">
+    <div class="modal-content small">
+      <div class="modal-header">
+        <h2>📥 下载语音识别模型</h2>
+      </div>
+      <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">
+        <p style="color:#ddd;font-size:14px;line-height:1.8;margin:0;">首次使用需要下载本地语音识别模型（约 236MB），下载完成后才能开始录音。</p>
+        <p style="color:#888;font-size:12px;margin:0;">模型只下载一次，之后完全离线使用。</p>
+      </div>
+      <div class="modal-footer btn-row">
+        <button id="btn-download-later" class="btn-sm">暂不下载</button>
+        <button id="btn-download-now" class="btn-main">开始下载</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模型下载进度弹窗 -->
+  <div id="model-progress-modal" class="modal hidden">
+    <div class="modal-content small">
+      <div class="modal-header">
+        <h2>📥 正在下载语音识别模型</h2>
+      </div>
+      <div class="modal-body">
+        <div class="progress-track">
+          <div id="download-progress-fill" class="progress-fill"></div>
+        </div>
+        <div style="text-align:center;margin-top:14px;color:#fff;font-size:22px;font-weight:600;" id="download-percent">0%</div>
+        <div style="text-align:center;margin-top:8px;color:#888;font-size:12px;" id="download-file">准备中…</div>
+        <div style="text-align:center;margin-top:12px;color:#ff6b6b;font-size:12px;" id="download-error"></div>
+      </div>
+      <div class="modal-footer btn-row">
+        <button id="btn-download-hide" class="btn-sm">隐藏</button>
       </div>
     </div>
   </div>

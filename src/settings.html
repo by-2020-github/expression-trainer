@@ -14,21 +14,11 @@
       -webkit-app-region: drag;
     }
 
-    .settings-container {
-      -webkit-app-region: no-drag;
-    }
+    .settings-container { -webkit-app-region: no-drag; }
 
-    h1 {
-      font-size: 20px;
-      font-weight: 600;
-      margin-bottom: 24px;
-      color: #fff;
-    }
+    h1 { font-size: 20px; font-weight: 600; margin-bottom: 24px; color: #fff; }
 
-    .form-group {
-      margin-bottom: 20px;
-    }
-
+    .form-group { margin-bottom: 20px; }
     .form-group label {
       display: block;
       font-size: 13px;
@@ -37,9 +27,7 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
-
-    .form-group select,
-    .form-group input {
+    .form-group select, .form-group input {
       width: 100%;
       padding: 10px 14px;
       background: #2a2a2a;
@@ -50,29 +38,12 @@
       outline: none;
       transition: border-color 0.2s;
     }
+    .form-group select:focus, .form-group input:focus { border-color: #4dabf7; }
+    .form-group input::placeholder { color: #666; }
+    .form-group .hint { font-size: 12px; color: #666; margin-top: 4px; }
 
-    .form-group select:focus,
-    .form-group input:focus {
-      border-color: #4dabf7;
-    }
-
-    .form-group input::placeholder {
-      color: #666;
-    }
-
-    .form-group .hint {
-      font-size: 12px;
-      color: #666;
-      margin-top: 4px;
-    }
-
-    .conditional {
-      display: none;
-    }
-
-    .conditional.visible {
-      display: block;
-    }
+    .conditional { display: none; }
+    .conditional.visible { display: block; }
 
     .btn-save {
       width: 100%;
@@ -87,57 +58,61 @@
       margin-top: 24px;
       transition: background 0.2s;
     }
+    .btn-save:hover { background: #339af0; }
+    .btn-save.loading { opacity: 0.6; pointer-events: none; }
 
-    .btn-save:hover {
-      background: #339af0;
+    .btn-fetch, .btn-download-model {
+      padding: 8px 14px;
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-top: 8px;
+    }
+    .btn-fetch:hover, .btn-download-model:hover { background: #333; }
+    .btn-fetch:disabled, .btn-download-model:disabled { opacity: 0.5; pointer-events: none; }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #ddd;
+      font-size: 14px;
+      text-transform: none;
+      letter-spacing: 0;
+      margin-bottom: 0;
+    }
+    .checkbox-row input[type="checkbox"] {
+      width: auto;
+      padding: 0;
+      accent-color: #4dabf7;
     }
 
-    .message-container {
-      position: relative;
-      height: 20px;
-      margin-top: 12px;
-    }
-
+    .message-container { position: relative; height: 20px; margin-top: 12px; }
     .save-success {
-      position: absolute;
-      left: 0;
-      right: 0;
-      text-align: center;
-      color: #69db7c;
-      font-size: 13px;
-      opacity: 0;
-      transition: opacity 0.3s;
+      position: absolute; left: 0; right: 0; text-align: center;
+      color: #69db7c; font-size: 13px; opacity: 0; transition: opacity 0.3s;
     }
-
-    .save-success.show {
-      opacity: 1;
-    }
-
+    .save-success.show { opacity: 1; }
     .connection-error {
-      position: absolute;
-      left: 0;
-      right: 0;
-      text-align: center;
-      color: #ff6b6b;
-      font-size: 13px;
-      opacity: 0;
-      transition: opacity 0.3s;
+      position: absolute; left: 0; right: 0; text-align: center;
+      color: #ff6b6b; font-size: 13px; opacity: 0; transition: opacity 0.3s;
       word-break: break-all;
     }
+    .connection-error.show { opacity: 1; }
+    .model-presets { font-size: 12px; color: #666; margin-top: 4px; }
 
-    .connection-error.show {
-      opacity: 1;
-    }
-
-    .model-presets {
-      font-size: 12px;
-      color: #666;
-      margin-top: 4px;
-    }
-
-    .btn-save.loading {
-      opacity: 0.6;
-      pointer-events: none;
+    .section-title {
+      font-size: 13px;
+      color: #888;
+      margin: 28px 0 12px;
+      border-top: 1px solid #333;
+      padding-top: 18px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
   </style>
 </head>
@@ -148,25 +123,44 @@
     <div class="form-group">
       <label>AI 后端</label>
       <select id="provider">
-        <option value="openai">OpenAI</option>
-        <option value="deepseek">DeepSeek（推荐）</option>
-        <option value="ollama">Ollama（本地）</option>
-        <option value="custom">自定义 OpenAI 兼容</option>
+        <!-- 由 settings.js 动态填充 -->
       </select>
     </div>
+
+    <!-- 语音识别模型（ASR）下载区 -->
+    <div class="section-title">语音识别模型</div>
+    <div class="form-group">
+      <label>本地语音识别模型</label>
+      <div class="hint" id="asr-model-status">检测中…</div>
+      <div class="model-dl-progress hidden" id="asr-dl-progress" style="margin-top:10px;">
+        <div class="progress-track"><div class="progress-fill" id="asr-dl-fill"></div></div>
+        <div class="model-presets" style="text-align:center;margin-top:6px;" id="asr-dl-percent">0%</div>
+      </div>
+      <button class="btn-download-model" id="btn-download-model">⬇ 下载 / 更新模型</button>
+      <div class="hint" id="asr-model-error" style="color:#ff6b6b;"></div>
+    </div>
+
+    <div class="section-title">大模型（AI 反馈 &amp; 报告）</div>
 
     <div class="form-group conditional" id="group-apikey">
       <label>API Key</label>
       <input type="password" id="apikey" placeholder="输入你的 API Key">
-      <div class="hint" id="apikey-hint">在 platform.deepseek.com 获取</div>
+      <div class="hint" id="apikey-hint">在平台获取 API Key</div>
     </div>
 
-    <div class="form-group">
+    <div class="form-group" id="group-model">
       <label>模型</label>
       <select id="model">
         <!-- 动态填充 -->
       </select>
       <div class="model-presets" id="model-hint"></div>
+      <button class="btn-fetch" id="btn-fetch-models">🔄 获取模型列表</button>
+    </div>
+
+    <div class="form-group conditional" id="group-custom-model">
+      <label>手动输入模型名</label>
+      <input type="text" id="custom-model" placeholder="model-name">
+      <div class="hint">选择"手动输入"或在此直接填写模型 ID</div>
     </div>
 
     <div class="form-group conditional" id="group-ollama">
@@ -180,9 +174,12 @@
       <div class="hint">请求时会自动追加 /chat/completions</div>
     </div>
 
-    <div class="form-group conditional" id="group-custom-model">
-      <label>自定义模型名</label>
-      <input type="text" id="custom-model" placeholder="model-name">
+    <div class="form-group">
+      <label>思考 / 推理模式</label>
+      <label class="checkbox-row">
+        <input type="checkbox" id="thinking">
+        <span id="thinking-label">开启思考（部分模型支持，如 Qwen3 / GLM-4.5 / Kimi K2）</span>
+      </label>
     </div>
 
     <div class="message-container">

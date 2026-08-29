@@ -6,15 +6,66 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron . --dev"
+    "dev": "electron . --dev",
+    "pack": "electron-builder --win --dir",
+    "dist": "electron-builder --win"
   },
-  "keywords": ["expression", "training", "speech", "asr", "chinese"],
+  "keywords": [
+    "expression",
+    "training",
+    "speech",
+    "asr",
+    "chinese"
+  ],
   "author": "sisi",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^33.0.0"
+    "electron": "^33.0.0",
+    "electron-builder": "^26.15.3"
   },
   "dependencies": {
-    "sherpa-onnx-node": "^1.10.0"
+    "sherpa-onnx-node": "^1.10.0",
+    "tar": "^7.5.22",
+    "unbzip2-stream": "^1.4.3"
+  },
+  "build": {
+    "appId": "com.sisi.expression-trainer",
+    "productName": "宇宙无敌表达训练",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "lib/**/*",
+      "data/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/node_modules/sherpa-onnx-win-x64/**"
+    ],
+    "extraResources": [
+      {
+        "from": "models/sherpa-onnx-streaming-paraformer-bilingual-zh-en",
+        "to": "models/sherpa-onnx-streaming-paraformer-bilingual-zh-en",
+        "filter": [
+          "**/encoder.int8.onnx",
+          "**/decoder.int8.onnx",
+          "**/tokens.txt"
+        ]
+      }
+    ],
+    "npmRebuild": false,
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

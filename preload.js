@@ -13,9 +13,14 @@ contextBridge.exposeInMainWorld('api', {
   closeWindow: () => ipcRenderer.invoke('close-current-window'),
 
   // 语音识别 - 使用 Web Audio 方案
+  checkASRModel: () => ipcRenderer.invoke('check-asr-model'),
+  startASRDownload: () => ipcRenderer.invoke('start-asr-download'),
   initASR: () => ipcRenderer.invoke('init-asr'),
   feedAudio: (samples) => ipcRenderer.invoke('feed-audio', Array.from(samples)),
   stopASR: () => ipcRenderer.invoke('stop-asr'),
+  onASRModelProgress: (callback) => {
+    ipcRenderer.on('asr-model-progress', (event, data) => callback(data));
+  },
   onASRResult: (callback) => {
     ipcRenderer.on('asr-result', (event, data) => callback(data));
   },
@@ -30,6 +35,8 @@ contextBridge.exposeInMainWorld('api', {
   getRealtimeFeedback: (text) => ipcRenderer.invoke('get-realtime-feedback', text),
   getFinalReport: (data) => ipcRenderer.invoke('get-final-report', data),
   testLLMConnection: (settings) => ipcRenderer.invoke('test-llm-connection', settings),
+  listModels: (config) => ipcRenderer.invoke('list-models', config),
+  getProviders: () => ipcRenderer.invoke('get-providers'),
 
   // 文件保存
   saveFile: (content, filename) => ipcRenderer.invoke('save-file', content, filename),

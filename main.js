@@ -1,9 +1,16 @@
 const { app, BrowserWindow, ipcMain, session, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { initASR, feedAudio, stopRecognition } = require('./lib/asr');
+const {
+  initASR,
+  feedAudio,
+  stopRecognition,
+  isModelReady,
+  ensureModelForRun,
+} = require('./lib/asr');
 const { loadLexicon, analyzeText } = require('./lib/lexicon');
-const { sendFeedback, sendReport, testConnection } = require('./lib/ai-feedback');
+const { sendFeedback, sendReport, testConnection, listModels } = require('./lib/ai-feedback');
+const { PROVIDERS } = require('./lib/providers');
 
 // 覆盖应用显示名称（菜单栏、Dock、任务栏、窗口标题）
 app.setName('宇宙无敌表达训练');
@@ -12,6 +19,17 @@ let mainWindow;
 let settingsWindow;
 let promptEditorWindow;
 let asrReady = false;
+
+/**
+ * 向所有窗口广播模型下载进度
+ */
+function broadcastModelProgress(payload) {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed()) {
+      win.webContents.send('asr-model-progress', payload);
+    }
+  }
+}
 
 // Custom prompt 文件路径
 function getCustomPromptPath() {
@@ -32,10 +50,15 @@ function saveCustomPrompt(data) {
 
 // 各 Provider 的默认配置
 const DEFAULT_PROVIDER_CONFIGS = {
-  openai: { apiKey: '', model: 'gpt-4o-mini' },
-  deepseek: { apiKey: '', model: 'deepseek-chat' },
-  ollama: { ollamaUrl: 'http://localhost:11434', model: 'qwen2.5:7b' },
-  custom: { apiKey: '', baseUrl: '', model: '' }
+  deepseek: { apiKey: '', model: 'deepseek-chat', thinking: false },
+  openai: { apiKey: '', model: 'gpt-4o-mini', thinking: false },
+  qwen: { apiKey: '', model: 'qwen-plus', thinking: false },
+  zhipu: { apiKey: '', model: 'glm-4-flash', thinking: false },
+  moonshot: { apiKey: '', model: 'moonshot-v1-8k', thinking: false },
+  doubao: { apiKey: '', model: 'doubao-seed-1-6-250615', thinking: false },
+  siliconflow: { apiKey: '', model: 'deepseek-ai/DeepSeek-V3', thinking: false },
+  ollama: { ollamaUrl: 'http://localhost:11434', model: 'qwen2.5:7b', thinking: false },
+  custom: { apiKey: '', baseUrl: '', model: '', thinking: false }
 };
 
 // 设置文件路径
@@ -49,14 +72,13 @@ function loadSettings() {
     const raw = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
     // 兼容旧版扁平结构 → 迁移到 per-provider 结构
     if (!raw.providers) {
+      const providers = {};
+      for (const key of Object.keys(DEFAULT_PROVIDER_CONFIGS)) {
+        providers[key] = { ...DEFAULT_PROVIDER_CONFIGS[key] };
+      }
       const migrated = {
         provider: raw.provider || 'deepseek',
-        providers: {
-          openai: { ...DEFAULT_PROVIDER_CONFIGS.openai },
-          deepseek: { ...DEFAULT_PROVIDER_CONFIGS.deepseek },
-          ollama: { ...DEFAULT_PROVIDER_CONFIGS.ollama },
-          custom: { ...DEFAULT_PROVIDER_CONFIGS.custom }
-        }
+        providers
       };
       // 将旧字段迁移到对应 provider
       const p = migrated.provider;
@@ -258,6 +280,20 @@ ipcMain.handle('close-current-window', (event) => {
 });
 
 // 语音识别相关 - Web Audio方案
+ipcMain.handle('check-asr-model', () => {
+  return { ready: isModelReady() };
+});
+
+ipcMain.handle('start-asr-download', async () => {
+  try {
+    await ensureModelForRun((p) => broadcastModelProgress(p));
+    return { success: true };
+  } catch (error) {
+    broadcastModelProgress({ state: 'error', message: error.message });
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('init-asr', async () => {
   try {
     await initASR();
@@ -286,6 +322,20 @@ ipcMain.handle('stop-asr', () => {
 ipcMain.handle('test-llm-connection', async (event, settings) => {
   const providerConfig = getCurrentProviderSettings(settings);
   return await testConnection({ ...settings, ...providerConfig });
+});
+
+// 拉取模型列表（OpenAI 兼容 /models 协议）
+ipcMain.handle('list-models', async (event, config) => {
+  try {
+    return await listModels(config);
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// 返回供应商元数据（供设置页动态渲染）
+ipcMain.handle('get-providers', () => {
+  return PROVIDERS;
 });
 
 // 词库分析
